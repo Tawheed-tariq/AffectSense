@@ -5,7 +5,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 export default function EmotionChart({ data }) {
   const chartData = {
-    labels: Object.keys(data).filter(key => key !== 'timestamp' && key !== 'predicted_class'),
+    labels: Object.keys(data).filter(key => key !== 'timestamp' && key !== 'predicted_class' && key !== 'session_id'),
     datasets: [
       {
         label: 'Emotion Probability',

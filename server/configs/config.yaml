@@ -29,8 +29,8 @@ model:
   num_classes: 7
 
 test:
-  ckpt: "/mnt/hdd/home/tawheed/Documents/Programming/Emotion Detector/website/server/output/2025-04-15_08-20-43/checkpoints/best_model.pth"
+  ckpt: "/mnt/hdd/home/tawheed/Documents/Programming/Emotion Detector/AffectSense/server/output/2025-04-15_08-20-43/checkpoints/best_model.pth"
   img_dir: "/DATA/Tawheed/emotion_data/predict"
-  output_dir: "/mnt/hdd/home/tawheed/Documents/Programming/Emotion Detector/website/server/output/2025-04-15_08-20-43/"
+  output_dir: "/mnt/hdd/home/tawheed/Documents/Programming/Emotion Detector/AffectSense/server/output/2025-04-15_08-20-4"
 
 ckpt_path: null

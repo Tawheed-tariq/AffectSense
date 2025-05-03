@@ -16,6 +16,7 @@ import threading
 import time
 import json
 import io
+import traceback
 
 # Import your model components
 from models.resnet_emotion import EmotionResNet
@@ -45,32 +46,48 @@ class_names = cfg['dataset']['class_names']
 
 # Initialize SQLite database
 def init_db():
-    conn = sqlite3.connect('emotions.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS emotion_records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp TEXT,
-        angry REAL,
-        disgust REAL,
-        fear REAL,
-        happy REAL,
-        sad REAL,
-        surprise REAL,
-        neutral REAL,
-        predicted_class TEXT
-    )
-    ''')
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        start_time TEXT,
-        end_time TEXT,
-        name TEXT
-    )
-    ''')
-    conn.commit()
-    conn.close()
+    conn = None
+    try:
+        conn = sqlite3.connect('emotions.db')
+        cursor = conn.cursor()
+        
+        # Create sessions table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                start_time TEXT,
+                end_time TEXT,
+                name TEXT
+            )
+        """)
+        
+        # Create emotion_records table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS emotion_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT,
+                angry REAL,
+                disgust REAL,
+                fear REAL,
+                happy REAL,
+                sad REAL,
+                surprise REAL,
+                neutral REAL,
+                predicted_class TEXT,
+                session_id INTEGER,
+                FOREIGN KEY(session_id) REFERENCES sessions(id)
+            )
+        """)
+        
+        conn.commit()
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+        traceback.print_exc()
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
 
 init_db()
 
@@ -86,17 +103,38 @@ def start_session():
     data = request.json
     session_name = data.get('name', f'Session {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     
-    conn = sqlite3.connect('emotions.db')
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO sessions (start_time, name) VALUES (?, ?)",
-        (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session_name)
-    )
-    conn.commit()
-    current_session_id = cursor.lastrowid
-    conn.close()
-    
-    return jsonify({'session_id': current_session_id})
+    conn = None
+    try:
+        conn = sqlite3.connect('emotions.db')
+        cursor = conn.cursor()
+        
+        # Ensure tables exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                start_time TEXT,
+                end_time TEXT,
+                name TEXT
+            )
+        """)
+        conn.commit()
+        
+        # Insert new session
+        cursor.execute(
+            "INSERT INTO sessions (start_time, name) VALUES (?, ?)",
+            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session_name)
+        )
+        conn.commit()
+        current_session_id = cursor.lastrowid
+        
+        return jsonify({'session_id': current_session_id})
+    except Exception as e:
+        print(f"Error starting session: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/api/session/end', methods=['POST'])
 def end_session():
@@ -151,6 +189,7 @@ def process_frame(frame):
         
         # Save to database if session is active
         if current_session_id:
+            result['session_id'] = current_session_id
             emotion_buffer.append(result)
             if len(emotion_buffer) >= BUFFER_SIZE:
                 save_emotions_to_db()
@@ -158,6 +197,7 @@ def process_frame(frame):
         return result
     except Exception as e:
         print(f"Error processing frame: {e}")
+        traceback.print_exc()
         return None
 
 def save_emotions_to_db():
@@ -169,7 +209,9 @@ def save_emotions_to_db():
     cursor = conn.cursor()
     for emotion in emotion_buffer:
         cursor.execute(
-            "INSERT INTO emotion_records (timestamp, angry, disgust, fear, happy, sad, surprise, neutral, predicted_class) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            """INSERT INTO emotion_records 
+            (timestamp, angry, disgust, fear, happy, sad, surprise, neutral, predicted_class, session_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 emotion['timestamp'],
                 emotion['Angry'],
@@ -179,7 +221,8 @@ def save_emotions_to_db():
                 emotion['Sad'],
                 emotion['Surprise'],
                 emotion['Neutral'],
-                emotion['predicted_class']
+                emotion['predicted_class'],
+                emotion.get('session_id')
             )
         )
     conn.commit()
@@ -213,6 +256,45 @@ def api_process_frame():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/session/<int:session_id>', methods=['DELETE'])
+def delete_session(session_id):
+    conn = None
+    try:
+        conn = sqlite3.connect('emotions.db')
+        cursor = conn.cursor()
+        
+        # Check if session exists
+        cursor.execute("SELECT id, start_time, end_time FROM sessions WHERE id = ?", (session_id,))
+        session = cursor.fetchone()
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Delete associated emotion records using timestamp range
+        start_time, end_time = session[1], session[2]
+        if end_time:
+            cursor.execute("""
+                DELETE FROM emotion_records 
+                WHERE timestamp BETWEEN ? AND ?
+            """, (start_time, end_time))
+        else:
+            cursor.execute("""
+                DELETE FROM emotion_records 
+                WHERE timestamp >= ?
+            """, (start_time,))
+        
+        # Delete the session
+        cursor.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn.commit()
+        
+        return jsonify({'message': 'Session deleted successfully'}), 200
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+    finally:
+        if conn:
+            conn.close()
+
 @app.route('/api/session/<int:session_id>/export', methods=['GET'])
 def export_session_data(session_id):
     try:
@@ -226,9 +308,12 @@ def export_session_data(session_id):
         if not session:
             return jsonify({'error': 'Session not found'}), 404
         
-        # Get all emotion records for the session
-        # Note: This is simplified - in a real app, you'd need to associate records with sessions
-        cursor.execute("SELECT * FROM emotion_records ORDER BY timestamp")
+        cursor.execute("""
+            SELECT timestamp, angry, disgust, fear, happy, sad, surprise, neutral, predicted_class 
+            FROM emotion_records 
+            WHERE session_id = ? 
+            ORDER BY timestamp
+        """, (session_id,))
         records = [dict(row) for row in cursor.fetchall()]
         
         # Create CSV file

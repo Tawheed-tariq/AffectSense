@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import SessionTable from '../components/SessionTable';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, Trash2 } from 'lucide-react';
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState([]);
@@ -48,6 +48,30 @@ export default function SessionsPage() {
       link.remove();
     } catch (error) {
       console.error('Error exporting session data:', error);
+    }
+  };
+
+  const deleteSession = async (sessionId) => {
+    if (!window.confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      await axios.delete(`http://localhost:5000/api/session/${sessionId}`);
+      
+      // Refresh the sessions list
+      await fetchSessions();
+      
+      // If the deleted session was selected, clear the selection
+      if (selectedSession === sessionId) {
+        setSelectedSession(null);
+        setEmotionRecords([]);
+      }
+      
+      alert('Session deleted successfully');
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      alert('Failed to delete session');
     }
   };
 
@@ -103,16 +127,28 @@ export default function SessionsPage() {
                         `${Math.round((new Date(session.end_time) - new Date(session.start_time)) / 60000)} mins` : 
                         'Incomplete'}
                     </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        exportSessionData(session.id);
-                      }}
-                      className="text-blue-500 hover:text-blue-700 text-xs flex items-center"
-                    >
-                      <Download size={14} className="mr-1" />
-                      Export
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          exportSessionData(session.id);
+                        }}
+                        className="text-blue-500 hover:text-blue-700 text-xs flex items-center"
+                        title="Export"
+                      >
+                        <Download size={14} className="mr-1" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteSession(session.id);
+                        }}
+                        className="text-red-500 hover:text-red-700 text-xs flex items-center"
+                        title="Delete"
+                      >
+                        <Trash2 size={14} className="mr-1" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
