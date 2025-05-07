@@ -2,7 +2,8 @@ dataset:
   train_path: "/DATA/Tawheed/emotion_data/images//train"
   val_path: "/DATA/Tawheed/emotion_data/images/test"
   test_path: "/DATA/Tawheed/emotion_data/images/test"
-  class_names: ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"]
+  # class_names: ["Neutral", "Happy", "Sad", "Surprise", "Fear", "Disgust", "Angry"]
+  class_names: ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
 
 training:
   batch_size: 128
@@ -29,7 +30,8 @@ model:
   num_classes: 7
 
 test:
-  ckpt: "/mnt/hdd/home/tawheed/Documents/Programming/Emotion Detector/AffectSense/server/output/2025-04-15_08-20-43/checkpoints/best_model.pth"
+  # ckpt: "/mnt/hdd/home/tawheed/Documents/Programming/Emotion Detector/AffectSense/server/output/2025-04-15_08-20-43/checkpoints/epoch=11-val_acc=62.13429924770131-val_loss=1.030141839938881.pth"
+  ckpt : "/mnt/hdd/home/tawheed/Documents/Programming/Emotion Detector/AffectSense/server/kaalu/checkpoints/epoch=12-val_acc=84.41981747066492-val_loss=0.6853767071346132.pth"
   img_dir: "/DATA/Tawheed/emotion_data/predict"
   output_dir: "/mnt/hdd/home/tawheed/Documents/Programming/Emotion Detector/AffectSense/server/output/2025-04-15_08-20-4"
 

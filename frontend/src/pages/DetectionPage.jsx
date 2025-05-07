@@ -18,6 +18,7 @@ export default function DetectionPage() {
       const response = await axios.post('http://localhost:5000/api/process_frame', {
         image: imageSrc
       });
+      console.log('Emotion data:', response.data);
       setEmotionData(response.data);
       
       if (sessionActive) {
