@@ -1,3 +1,9 @@
+// --------------------------------------------------------
+// AffectSense
+// Copyright 2025 Tavaheed Tariq
+// --------------------------------------------------------
+
+
 import { forwardRef, useState, useImperativeHandle, useRef } from 'react';
 import Webcam from 'react-webcam';
 

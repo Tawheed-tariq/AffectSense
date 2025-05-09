@@ -1,10 +1,15 @@
+// --------------------------------------------------------
+// AffectSense
+// Copyright 2025 Tavaheed Tariq
+// --------------------------------------------------------
+
+
 import { useState } from 'react';
 
 export default function SessionTable({ records }) {
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
 
-  // Pagination logic
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
   const currentRecords = records.slice(indexOfFirstRecord, indexOfLastRecord);

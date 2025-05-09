@@ -1,3 +1,9 @@
+// --------------------------------------------------------
+// AffectSense
+// Copyright 2025 Tavaheed Tariq
+// --------------------------------------------------------
+
+
 import { Link } from 'react-router-dom';
 import { Camera, Database } from 'lucide-react';
 
