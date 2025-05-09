@@ -8,4 +8,4 @@ training:
   pretrained: true
 
 test:
-  ckpt : "/mnt/hdd/home/tawheed/Documents/Programming/Emotion Detector/AffectSense/server/FER/best_model.pth"
+  ckpt : "/mnt/hdd/home/tawheed/Documents/Programming/Emotion Detector/AffectSense/server/checkpoints/BP4D_84.pth"

@@ -4,3 +4,4 @@ kaalu_FER_TUNED/
 FER/
 *.db
 __pycache__/
+checkpoints/
