@@ -12,14 +12,15 @@ import UploadPage from './pages/UploadPage';
 import BatchPage from './pages/BatchPage';
 import Navbar from './components/Navbar';
 import { SessionProvider } from './context/SessionContext';
+import Footer from './components/Footer';
 
 function App() {
   return (
     <Router>
       <SessionProvider>
-        <div className="min-h-screen bg-gray-100">
+        <div className="min-h-screen bg-gray-100 flex flex-col">
           <Navbar />
-          <div className="container mx-auto px-4 py-8">
+          <div className="container mx-auto px-4 py-8 flex-grow">
             <Routes>
               <Route path="/" element={<DetectionHome />} />
               <Route path="/sessions" element={<SessionsPage />} />
@@ -28,6 +29,7 @@ function App() {
               <Route path="/batch" element={<BatchPage />} />
             </Routes>
           </div>
+          <Footer />
         </div>
       </SessionProvider>
     </Router>
