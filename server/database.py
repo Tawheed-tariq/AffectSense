@@ -5,6 +5,7 @@
 
 import sqlite3
 import traceback
+from datetime import datetime
 
 current_session_id = None
 emotion_buffer = []
@@ -51,6 +52,7 @@ def init_db():
         """)
         
         conn.commit()
+        print("Database initialized successfully.")
     except Exception as e:
         print(f"Error initializing database: {e}")
         traceback.print_exc()
@@ -60,14 +62,16 @@ def init_db():
         if conn:
             conn.close()
 
-
 def save_single_emotion(emotion):
     """Save a single emotion record to the database"""
+    if not emotion or 'session_id' not in emotion:
+        print("Warning: Cannot save emotion without session_id")
+        return False
+        
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        print(f"Saving single emotion data to database: {emotion}")
         cursor.execute(
             """INSERT INTO emotion_records 
             (timestamp, angry, disgust, fear, happy, sad, surprise, neutral, predicted_class, session_id) 
@@ -82,16 +86,18 @@ def save_single_emotion(emotion):
                 emotion.get('Surprise', 0),
                 emotion.get('Neutral', 0),
                 emotion['predicted_class'],
-                emotion.get('session_id')
+                emotion['session_id']
             )
         )
         conn.commit()
-        print("Single emotion data saved successfully.")
+        print(f"Single emotion data saved successfully for session {emotion['session_id']}.")
+        return True
     except Exception as e:
         print(f"Error saving single emotion to database: {e}")
         traceback.print_exc()
         if conn:
             conn.rollback()
+        return False
     finally:
         if conn:
             conn.close()
@@ -100,14 +106,20 @@ def save_emotions_to_db():
     """Save buffered emotion data to database"""
     global emotion_buffer
     if not emotion_buffer:
-        return
+        print("No emotions in buffer to save.")
+        return False
     
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        saved_count = 0
+        
         for emotion in emotion_buffer:
-            print(f"Saving emotion data to database: {emotion}")
+            if 'session_id' not in emotion or emotion['session_id'] is None:
+                print(f"Warning: Skipping emotion without session_id: {emotion.get('timestamp')}")
+                continue
+                
             cursor.execute(
                 """INSERT INTO emotion_records 
                 (timestamp, angry, disgust, fear, happy, sad, surprise, neutral, predicted_class, session_id) 
@@ -122,16 +134,28 @@ def save_emotions_to_db():
                     emotion.get('Surprise', 0),
                     emotion.get('Neutral', 0),
                     emotion['predicted_class'],
-                    emotion.get('session_id')
+                    emotion['session_id']
                 )
             )
+            saved_count += 1
+            
         conn.commit()
-        emotion_buffer = []
+        print(f"Saved {saved_count} emotions from buffer to database.")
+        emotion_buffer.clear()  # Clear buffer after successful save
+        return True
     except Exception as e:
         print(f"Error saving emotions to database: {e}")
         traceback.print_exc()
         if conn:
             conn.rollback()
+        return False
     finally:
         if conn:
             conn.close()
+
+def force_save_remaining_emotions():
+    """Force save any remaining emotions in the buffer"""
+    if emotion_buffer:
+        print(f"Force saving {len(emotion_buffer)} remaining emotions in buffer.")
+        return save_emotions_to_db()
+    return False

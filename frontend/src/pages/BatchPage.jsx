@@ -1,8 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import EmotionChart from '../components/EmotionChart';
-import { Folder, Upload, Check, AlertTriangle, Save, PlusCircle, Home } from 'lucide-react';
+import { Folder, Upload, Check, AlertTriangle, Save, PlusCircle, Home, Loader } from 'lucide-react';
 import { useSessionContext } from '../context/SessionContext';
 import { folderProcessing } from '../utils/routes';
 
@@ -16,9 +15,7 @@ export default function BatchPage() {
     setSessionName 
   } = useSessionContext();
   
-  const [emotionData, setEmotionData] = useState(null);
   const [processingFolder, setProcessingFolder] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState(0);
   const [processingComplete, setProcessingComplete] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [showSessionInput, setShowSessionInput] = useState(false);
@@ -42,7 +39,6 @@ export default function BatchPage() {
 
   const processFolder = async (files) => {
     setProcessingFolder(true);
-    setProcessingProgress(0);
     setProcessingComplete(false);
 
     try {
@@ -52,21 +48,13 @@ export default function BatchPage() {
       }
       formData.append('session_id', activeSession?.id);
 
-      const response = await axios.post(folderProcessing, formData, {
+      await axios.post(folderProcessing, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setProcessingProgress(progress);
         }
       });
 
-      console.log('Folder processing complete:', response.data);
       setProcessingComplete(true);
-      if (response.data.lastResult) {
-        setEmotionData(response.data.lastResult);
-      }
     } catch (error) {
       console.error('Error processing folder:', error);
       setErrorMessage('Error processing folder: ' + (error.response?.data?.message || error.message));
@@ -94,6 +82,7 @@ export default function BatchPage() {
   const handleSaveSession = async () => {
     await endSession();
     setSelectedFiles([]);
+    setProcessingComplete(false);
   };
 
   const handleFolderButtonClick = () => {
@@ -167,17 +156,9 @@ export default function BatchPage() {
             </div>
             
             {processingFolder && (
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="flex justify-between mb-2">
-                  <span className="text-blue-700">Processing images...</span>
-                  <span className="text-blue-700">{processingProgress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div 
-                    className="bg-blue-600 h-2.5 rounded-full" 
-                    style={{ width: `${processingProgress}%` }}
-                  ></div>
-                </div>
+              <div className="p-4 bg-blue-50 rounded-lg flex items-center justify-center">
+                <Loader size={24} className="animate-spin text-blue-600 mr-2" />
+                <span className="text-blue-700">Processing images...</span>
               </div>
             )}
             
@@ -185,7 +166,7 @@ export default function BatchPage() {
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center">
                 <Check size={20} className="text-green-600 mr-2" />
                 <span className="text-green-700">
-                  Processing complete! Results saved.
+                  Processing complete! All emotions have been analyzed and saved to the current session.
                 </span>
               </div>
             )}
@@ -237,26 +218,51 @@ export default function BatchPage() {
         </div>
 
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Batch Results</h2>
-          {emotionData ? (
-            <div>
-              <p className="mb-4 text-gray-700">Showing analysis for the last processed image:</p>
-              <EmotionChart data={emotionData} />
-              <div className="mt-6 bg-gray-50 p-4 rounded-lg">
-                <p className="text-lg flex items-center">
-                  <span className="mr-2">Dominant Emotion:</span> 
-                  <span className="font-bold text-blue-700">{emotionData.predicted_class}</span>
-                </p>
-                <p className="mt-2 text-gray-600">
-                  Complete results are saved.
-                </p>
-              </div>
+          <h2 className="text-xl font-semibold mb-4">Batch Processing Information</h2>
+          
+          {processingComplete ? (
+            <div className="text-center py-12 flex flex-col items-center">
+              <Check size={64} className="text-green-500 mb-4" />
+              <h3 className="text-xl font-medium text-gray-800 mb-2">All Images Processed Successfully</h3>
+              <p className="text-gray-600 mb-4">All emotion results have been saved to your current session.</p>
+              <p className="text-gray-600">
+                You can view all results by going to the Sessions page after saving your session.
+              </p>
+              <button
+                onClick={handleSaveSession}
+                disabled={!activeSession}
+                className={`mt-6 flex items-center px-6 py-3 rounded-md transition ${
+                  activeSession 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <Save className="mr-2" size={18} />
+                Save & End Session
+              </button>
+            </div>
+          ) : processingFolder ? (
+            <div className="text-center py-12 flex flex-col items-center">
+              <Loader size={64} className="animate-spin text-blue-500 mb-4" />
+              <h3 className="text-xl font-medium text-gray-800">Processing Images</h3>
+              <p className="text-gray-600 mt-2">
+                Please wait while we analyze all images in your folder.
+              </p>
             </div>
           ) : (
             <div className="text-center py-16 text-gray-500 flex flex-col items-center">
               <AlertTriangle size={48} className="text-gray-400 mb-3" />
               <p className="text-lg">No batch processing results</p>
               <p className="text-sm mt-1">Process a folder of images to see results</p>
+              <div className="mt-8 p-4 bg-blue-50 rounded-lg max-w-md mx-auto">
+                <h3 className="font-medium text-blue-800 mb-2">How batch processing works:</h3>
+                <ol className="text-left text-blue-700 pl-5 space-y-2">
+                  <li>Start a new session or use an active one</li>
+                  <li>Select a folder containing images</li>
+                  <li>Wait for all images to be processed</li>
+                  <li>Save your session to view results later</li>
+                </ol>
+              </div>
             </div>
           )}
         </div>

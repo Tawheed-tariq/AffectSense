@@ -8,7 +8,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
           <div className="flex flex-col items-center md:items-start">
-            <h3 className="text-lg font-medium mb-2">Gaash Lab</h3>
+            <h3 className="text-lg font-medium mb-2">AffectSense</h3>
             <div className="flex flex-col space-y-2 text-sm text-gray-300">
               <div className="flex items-center">
                 <MapPin size={16} className="mr-2" />

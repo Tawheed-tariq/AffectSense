@@ -1,9 +1,3 @@
-// --------------------------------------------------------
-// AffectSense
-// Copyright 2025 Tavaheed Tariq
-// --------------------------------------------------------
-
-
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -30,10 +24,17 @@ export default function CameraPage() {
   const [showSessionInput, setShowSessionInput] = useState(false);
 
   const captureEmotion = async (imageSrc) => {
+    // Check if session is active first
+    if (!activeSession) {
+      setShowSessionInput(true);
+      return;
+    }
+    
     try {
       const response = await axios.post(processFrame, {
         image: imageSrc,
-        session_id: activeSession?.id
+        session_id: activeSession?.id,
+        isCamera: true
       });
       
       setEmotionData(response.data);
@@ -122,7 +123,7 @@ export default function CameraPage() {
           
           <div className="mt-6 flex flex-wrap gap-3">
             <button
-              onClick={() => captureEmotion(videoRef.current.getScreenshot())}
+              onClick={() => videoRef.current && captureEmotion(videoRef.current.getScreenshot())}
               className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
             >
               <Camera className="mr-2" size={18} />

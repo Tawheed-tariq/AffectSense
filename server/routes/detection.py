@@ -9,11 +9,18 @@ import base64
 import traceback
 import os
 from datetime import datetime
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 import torch
 
 from utils.image_processing import process_frame
-from database import current_session_id, save_emotions_to_db, save_single_emotion, emotion_buffer, BUFFER_SIZE
+from database import (
+    current_session_id, 
+    save_emotions_to_db, 
+    save_single_emotion, 
+    emotion_buffer,
+    force_save_remaining_emotions,
+    BUFFER_SIZE
+)
 
 detection_bp = Blueprint('detection', __name__)
 
@@ -38,8 +45,11 @@ def api_process_frame():
         return jsonify({'error': 'No image data provided'}), 400
     
     try:
-        # Decode the base64 image
+        isCamera = request.json.get('isCamera', False)
         session_id = request.json.get('session_id', current_session_id)
+        if not session_id:
+            return jsonify({'error': 'No session ID provided or active'}), 400
+            
         image_data = request.json['image'].split(',')[1] if ',' in request.json['image'] else request.json['image']
         image_bytes = base64.b64decode(image_data)
         
@@ -47,14 +57,19 @@ def api_process_frame():
         nparr = np.frombuffer(image_bytes, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         
-        result = process_frame(frame, model, device)
-        print(f"Processed frame of session id {session_id}")
-        print(f"Result: {result}")
-        if session_id:
-            result['session_id'] = session_id
-            save_single_emotion(result)
-            
+        if frame is None or frame.size == 0:
+            return jsonify({'error': 'Invalid image data'}), 400
+        
+        # Pass use_retinaface=False when isCamera is True for faster processing
+        result = process_frame(frame, model, device, session_id, use_retinaface=(not isCamera))
+        
         if result:
+            result['session_id'] = session_id
+            
+            saved = save_single_emotion(result)
+            if not saved:
+                current_app.logger.warning(f"Failed to save emotion for session {session_id}")
+                
             return jsonify(result)
         else:
             return jsonify({'error': 'Failed to process frame'}), 500
@@ -78,34 +93,55 @@ def process_folder():
         images = request.files.getlist('images')
         results = []
         last_result = None
+        processed_count = 0
+        
+        global emotion_buffer
+        emotion_buffer.clear()
         
         for image_file in images:
-            # Read image
-            img_bytes = image_file.read()
-            nparr = np.frombuffer(img_bytes, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            
-            # Process image
-            result = process_frame(img, model, device)
-            
-            if result:
-                result['filename'] = image_file.filename
-                result['session_id'] = session_id
-                results.append(result)
-                last_result = result
-                emotion_buffer.append(result)
-                if len(emotion_buffer) >= BUFFER_SIZE:
-                    save_emotions_to_db()
-                  
-        save_emotions_to_db()
+            try:
+                img_bytes = image_file.read()
+                nparr = np.frombuffer(img_bytes, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 
+                if img is None or img.size == 0:
+                    print(f"Warning: Could not decode image {image_file.filename}")
+                    continue
+                
+                result = process_frame(img, model, device, session_id)
+                
+                if result:
+                    result['filename'] = image_file.filename
+                    result['session_id'] = session_id 
+                    
+                    results.append(result)
+                    last_result = result
+                    
+                    emotion_buffer.append(result)
+                    processed_count += 1
+                    
+                    if len(emotion_buffer) >= BUFFER_SIZE:
+                        print(f"Saving batch of {len(emotion_buffer)} emotions")
+                        save_emotions_to_db()
+            except Exception as e:
+                print(f"Error processing image {image_file.filename}: {e}")
+                continue
+        
+        if emotion_buffer:
+            print(f"Saving remaining {len(emotion_buffer)} emotions")
+            force_save_remaining_emotions()
+        
         return jsonify({
-            'message': f'Processed {len(results)} images',
-            'resultsCount': len(results),
+            'message': f'Processed {processed_count} images',
+            'resultsCount': processed_count,
+            'savedCount': len(results),
             'lastResult': last_result
         })
         
     except Exception as e:
+        if emotion_buffer:
+            force_save_remaining_emotions()
+            
         print(f"Error processing folder: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500

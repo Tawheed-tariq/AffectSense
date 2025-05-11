@@ -1,14 +1,8 @@
-// --------------------------------------------------------
-// AffectSense
-// Copyright 2025 Tavaheed Tariq
-// --------------------------------------------------------
-
-
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import EmotionChart from '../components/EmotionChart';
-import { Upload, Clock, Check, AlertTriangle, Save, PlusCircle, Home, Image } from 'lucide-react';
+import { Upload, Clock, Check, AlertTriangle, Save, PlusCircle, Home, Image, Loader } from 'lucide-react';
 import { useSessionContext } from '../context/SessionContext';
 import { processFrame } from '../utils/routes';
 
@@ -25,6 +19,7 @@ export default function UploadPage() {
   const [emotionData, setEmotionData] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [showSessionInput, setShowSessionInput] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const fileInputRef = useRef(null);
   const [selectedFileName, setSelectedFileName] = useState('');
 
@@ -39,6 +34,7 @@ export default function UploadPage() {
       setEmotionData(response.data);
     } catch (error) {
       console.error('Error processing image:', error);
+      setErrorMessage('Error processing image: ' + (error.response?.data?.message || error.message));
     } finally {
       setUploading(false);
     }
@@ -48,38 +44,61 @@ export default function UploadPage() {
     const file = event.target.files[0];
     if (file) {
       setSelectedFileName(file.name);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (!activeSession) {
-          setShowSessionInput(true);
-          sessionStorage.setItem('pendingImageData', e.target.result);
-        } else {
+      setErrorMessage('');
+      
+      if (!activeSession) {
+        setErrorMessage("Please start a session before uploading an image");
+        setShowSessionInput(true);
+        sessionStorage.setItem('pendingImageData', URL.createObjectURL(file));
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
           processImage(e.target.result);
-        }
-      };
-      reader.readAsDataURL(file);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
   const handleStartNewSession = async () => {
     if (!sessionName) {
-      alert("Please enter a session name");
+      setErrorMessage("Please enter a session name");
       return;
     }
     
     await startSession(sessionName);
     setShowSessionInput(false);
+    setErrorMessage('');
     
     // Process the pending image if exists
     const pendingImageData = sessionStorage.getItem('pendingImageData');
     if (pendingImageData) {
-      processImage(pendingImageData);
-      sessionStorage.removeItem('pendingImageData');
+      fetch(pendingImageData)
+        .then(res => res.blob())
+        .then(blob => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            processImage(e.target.result);
+          };
+          reader.readAsDataURL(blob);
+          sessionStorage.removeItem('pendingImageData');
+        });
     }
   };
 
   const handleSaveSession = async () => {
     await endSession();
+    setEmotionData(null);
+    setSelectedFileName('');
+  };
+
+  const handleImageButtonClick = () => {
+    if (!activeSession) {
+      setErrorMessage("Please start a session before uploading an image");
+      setShowSessionInput(true);
+    } else {
+      fileInputRef.current.click();
+    }
   };
 
   return (
@@ -117,8 +136,15 @@ export default function UploadPage() {
               </div>
             )}
             
+            {errorMessage && (
+              <div className="mb-4 p-2 bg-red-50 text-red-700 rounded-md flex items-center">
+                <AlertTriangle size={16} className="mr-2" />
+                {errorMessage}
+              </div>
+            )}
+            
             <button 
-              onClick={() => fileInputRef.current.click()}
+              onClick={handleImageButtonClick}
               className="flex items-center justify-center mx-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
             >
               <Upload className="mr-2" size={18} />
@@ -181,9 +207,9 @@ export default function UploadPage() {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-xl font-semibold mb-4">Emotion Analysis</h2>
           {uploading ? (
-            <div className="text-center py-16">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Processing image...</p>
+            <div className="text-center py-12 flex flex-col items-center">
+              <Loader size={64} className="animate-spin text-blue-500 mb-4" />
+              <p className="mt-2 text-gray-600">Processing image...</p>
             </div>
           ) : emotionData ? (
             <div>
