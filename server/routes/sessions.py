@@ -1,6 +1,6 @@
 # --------------------------------------------------------
 # AffectSense
-# Copyright 2025 Tavaheed Tariq
+# Copyright 2025 Tavaheed Tariq , GAASH LAB
 # --------------------------------------------------------
 
 from flask import Blueprint, request, jsonify

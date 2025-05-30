@@ -3,7 +3,7 @@
 
 # --------------------------------------------------------
 # AffectSense
-# Copyright 2025 Tavaheed Tariq
+# Copyright 2025 Tavaheed Tariq , GAASH LAB
 # --------------------------------------------------------
 
 

@@ -2,7 +2,7 @@
 
 # --------------------------------------------------------
 # AffectSense
-# Copyright 2025 Tavaheed Tariq
+# Copyright 2025 Tavaheed Tariq , GAASH LAB
 # --------------------------------------------------------
 
 from flask import Flask
@@ -38,4 +38,4 @@ app.register_blueprint(sessions_bp)
 app.register_blueprint(data_bp)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(port=5000)

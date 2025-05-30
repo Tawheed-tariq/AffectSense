@@ -1,6 +1,6 @@
 # --------------------------------------------------------
 # AffectSense
-# Copyright 2025 Tavaheed Tariq
+# Copyright 2025 Tavaheed Tariq , GAASH LAB
 # --------------------------------------------------------
 
 import sqlite3
@@ -9,7 +9,7 @@ from datetime import datetime
 
 current_session_id = None
 emotion_buffer = []
-BUFFER_SIZE = 10  # Number of readings to buffer before database write
+BUFFER_SIZE = 10  
 
 def get_db_connection():
     """Create and return a database connection"""
